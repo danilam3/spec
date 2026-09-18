@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Новая сверка — макет</title>
+<meta name="theme-color" content="#1E2849">
+<!-- Макет M1-D4: экран загрузки — сделка, роль документа, вендор, категория.
+     Требования — docs/10-roadmap.md (M1-D4), решения по дизайну — docs/18-review-ui.md.
+     Повтор файла определяется по содержимому (SHA-256), как в store/registry.py
+     register_document(): тот же файл под другим именем — всё равно повтор. -->
+<link rel="stylesheet" href="axoft.css">
+<style>
+  .workspace{ flex:1; min-height:0; display:flex; }
+  .main{ flex:1; min-width:0; overflow-y:auto; padding:26px 22px 40px; }
+  .main-inner{ max-width:860px; margin:0 auto; display:flex; flex-direction:column; gap:16px; }
+  .side{
+    flex:0 0 374px; width:374px; border-left:1px solid var(--line);
+    background:var(--bg-side); box-shadow:-10px 0 28px -24px rgba(22,30,56,.25);
+    overflow-y:auto; padding:18px 20px 22px;
+  }
+
+  .intro h2{ margin:0 0 4px; font-size:22px; font-weight:650; letter-spacing:-0.021em; color:var(--navy); }
+  .intro p{ margin:0; font-size:13.5px; color:var(--ink-soft); max-width:40em; }
+
+  .card{
+    background:var(--bg-elevated); border:1px solid var(--line); border-radius:var(--radius);
+    box-shadow:var(--shadow-card); padding:16px 18px 18px;
+    animation:cardIn var(--dur-slow) var(--ease-out) both;
+  }
+  .card:nth-of-type(2){ animation-delay:.05s; }
+  .card-h{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:12px; }
+  .card-h h3{ margin:0; font-size:15px; font-weight:650; letter-spacing:-0.012em; color:var(--navy);
+    padding-left:10px; border-left:3px solid var(--teal); }
+
+  .seg{ display:inline-flex; background:var(--bg); border-radius:999px; padding:3px; gap:2px; }
+  .seg button{
+    border:none; background:transparent; color:var(--ink-soft); font-size:12.5px; font-weight:500;
+    padding:5px 13px; border-radius:999px; cursor:pointer;
+    transition:background var(--dur) ease, color var(--dur) ease;
+  }
+  .seg button[aria-pressed="true"]{ background:var(--bg-elevated); color:var(--navy); font-weight:600; box-shadow:var(--shadow-sm); }
+
+  .grid2{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px 14px; }
+  .grid3{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12px 14px; margin-top:12px; }
+  .field input[readonly]{ background:var(--bg); color:var(--ink-soft); }
+  .field .err{ font-size:11.5px; color:var(--danger); }
+
+  .deal-docs{ margin-top:12px; font-size:12.5px; }
+  .deal-docs .row{ display:flex; gap:10px; align-items:baseline; padding:6px 0; border-top:1px solid var(--line); }
+  .deal-docs .role{ flex:0 0 150px; color:var(--ink-soft); }
+  .deal-docs .name{ font-weight:600; color:var(--navy); overflow-wrap:anywhere; }
+
+  .zones{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:14px; }
+  .zone{
+    border:1.5px dashed var(--line-strong); border-radius:var(--radius);
+    padding:16px; background:var(--bg-side);
+    display:flex; flex-direction:column; gap:10px; min-height:210px;
+    transition:border-color var(--dur) ease, background var(--dur) ease, transform var(--dur-fast) var(--ease-out);
+  }
+  .zone.over{ border-color:var(--teal); background:var(--teal-pale); transform:scale(1.005); }
+  .zone-h{ display:flex; gap:11px; align-items:flex-start; }
+  .zone-ico{
+    flex:0 0 auto; width:38px; height:38px; border-radius:11px; display:grid; place-items:center;
+    color:#FFFFFF; font-size:11px; font-weight:700; letter-spacing:.03em;
+    box-shadow:0 8px 18px -10px rgba(14,114,136,.65), inset 0 1px 0 rgba(255,255,255,.22);
+  }
+  .zone-ico.docx{ background:linear-gradient(180deg, #2B5AA8 0%, #1E4488 100%); }
+  .zone-ico.xlsx{ background:linear-gradient(180deg, #1F8A55 0%, #16703F 100%); }
+  .zone-t{ font-size:14px; font-weight:650; color:var(--navy); letter-spacing:-0.01em; }
+  .zone-s{ font-size:12px; color:var(--ink-soft); line-height:1.45; }
+  .drop{
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
+    text-align:center; font-size:12.5px; color:var(--ink-soft); padding:12px 8px;
+    border-radius:var(--radius-sm);
+  }
+  .files{ display:flex; flex-direction:column; gap:8px; }
+
+  .file{
+    background:var(--bg-elevated); border:1px solid var(--line); border-radius:var(--radius-sm);
+    padding:9px 11px; font-size:12.5px; box-shadow:var(--shadow-sm);
+    animation:rise var(--dur) var(--ease-out) both;
+  }
+  .file-top{ display:flex; gap:8px; align-items:flex-start; justify-content:space-between; }
+  .file-name{ font-weight:600; color:var(--navy); overflow-wrap:anywhere; }
+  .file-size{ color:var(--ink-soft); font-weight:400; margin-left:4px; white-space:nowrap; }
+  .x{
+    flex:0 0 auto; border:none; background:transparent; color:var(--ink-soft); cursor:pointer;
+    width:22px; height:22px; border-radius:50%; font-size:15px; line-height:1;
+  }
+  .x:hover{ background:var(--bg); color:var(--danger); }
+  .file-msg{ display:flex; gap:7px; align-items:flex-start; margin-top:6px; line-height:1.45; }
+  .pill{ flex:0 0 auto; font-size:10.5px; font-weight:600; letter-spacing:.02em; text-transform:uppercase;
+    border-radius:999px; padding:2px 8px; white-space:nowrap; margin-top:1px; }
+  .pill.new{ color:var(--green-dark); background:var(--green-pale); }
+  .pill.dup{ color:var(--teal-dark); background:var(--teal-pale); }
+  .pill.warn{ color:var(--st-partial); background:var(--st-partial-bg); }
+  .pill.bad{ color:var(--danger); background:var(--st-mismatch-bg); }
+  .pill.wait{ color:var(--ink-soft); background:var(--bg); }
+  .file-act{ margin-top:6px; }
+
+  .go{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .go .note{ font-size:12.5px; color:var(--ink-soft); flex:1 1 280px; line-height:1.45; }
+  .go .note.warn{ color:var(--st-review); }
+  .btn.lg{ height:42px; padding:0 22px; font-size:14.5px; border-radius:var(--radius); }
+
+  /* ход обработки */
+  .run{ display:none; }
+  .run.on{ display:block; }
+  .run ol{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:2px; }
+  .run li{ display:flex; gap:12px; align-items:flex-start; padding:9px 0; border-top:1px solid var(--line); }
+  .run li:first-child{ border-top:none; }
+  .run .mark{
+    flex:0 0 auto; width:22px; height:22px; border-radius:50%; display:grid; place-items:center;
+    border:1.5px solid var(--line-strong); color:transparent; font-size:12px; font-weight:700; margin-top:1px;
+  }
+  .run li.active .mark{ border-color:var(--teal); border-top-color:transparent; animation:spin .8s linear infinite; }
+  .run li.done .mark{ background:var(--teal); border-color:var(--teal); color:#FFFFFF; }
+  .run li.skip .mark{ background:var(--bg); border-style:dashed; }
+  .run .t{ font-weight:600; color:var(--navy); font-size:13.5px; }
+  .run .d{ font-size:12.5px; color:var(--ink-soft); margin-top:1px; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  .run-foot{ margin-top:14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+
+  .guide code{
+    font-family:var(--mono); font-size:11.5px; background:var(--bg); border:1px solid var(--line);
+    border-radius:5px; padding:1px 5px;
+  }
+
+  @media (max-width:1023px){
+    .workspace{ flex-direction:column; overflow-y:auto; }
+    .main{ overflow:visible; }
+    .side{ flex:0 0 auto; width:100%; border-left:none; border-top:1px solid var(--line); overflow:visible; }
+  }
+  @media (max-width:640px){
+    .main{ padding:18px 16px 28px; }
+    .grid2, .grid3, .zones{ grid-template-columns:minmax(0,1fr); }
+    .side{ padding:16px; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="top">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 625.34 199.66" fill="currentColor" role="img" aria-label="Axoft">
+        <path d="M40.47 45.41 0 155.15 37.68 155.15 41.63 142.32 81.12 142.32 85.07 155.15 122.75 155.15 82.28 45.41 40.49 45.41ZM50.51 113.36 61.37 77.99 72.23 113.36 50.51 113.36Z"/>
+        <path d="M341.46 43.6C307.57 43.6 281.41 66.63 281.41 100.36 281.41 134.09 307.57 157.12 341.46 157.12 375.35 157.12 401.51 134.09 401.51 100.36 401.51 66.63 375.35 43.6 341.46 43.6ZM341.46 127.84C325.5 127.84 315.14 115.66 315.14 100.36 315.14 85.06 325.5 72.88 341.46 72.88 357.42 72.88 367.78 85.06 367.78 100.36 367.78 115.66 357.41 127.84 341.46 127.84Z"/>
+        <path d="M413.35 155.15 446.59 155.15 446.59 114.18 495.45 114.18 495.45 85.22 446.59 85.22 446.59 74.37 496.6 74.37 496.6 45.41 413.35 45.41 413.35 155.15Z"/>
+        <path d="M504.83 45.41 504.83 74.37 534.28 74.37 534.28 155.15 567.51 155.15 567.51 74.37 596.79 74.37 596.79 45.41 504.83 45.41Z"/>
+        <path d="M288.57 45.31 253.63 45.31 211.41 105.13 144.63 199.66 179.57 199.66 229.66 128.24 229.75 128.36 249.21 154.47 285.34 154.47 247.08 103.99 288.57 45.31Z"/>
+        <path d="M160.3 155.31 202.43 95.62 202.43 95.62 269.91 0 234.87 0 184.27 72 164.79 45.87 128.57 45.87 166.92 96.49 125.26 155.31 160.3 155.31Z"/>
+        <path d="M596.79 23.91C596.79 15.97 603.19 9.63 611.07 9.63 618.95 9.63 625.34 15.96 625.34 23.91 625.34 31.86 619.01 38.18 611.07 38.18 603.13 38.18 596.79 31.78 596.79 23.91ZM598.68 23.91C598.68 30.71 604.2 36.3 611.07 36.3 617.94 36.3 623.39 30.71 623.39 23.91 623.39 17.11 617.87 11.59 611.07 11.59 604.27 11.59 598.68 17.04 598.68 23.91ZM614.97 32.12 610.73 25.65 607.77 25.65 607.77 32.12 605.61 32.12 605.61 15.76 612.28 15.76C615.11 15.76 617.47 17.71 617.47 20.74 617.47 24.38 614.24 25.59 613.3 25.59L617.68 32.12 614.99 32.12ZM607.77 17.64 607.77 23.7 612.28 23.7C613.96 23.7 615.24 22.42 615.24 20.74 615.24 18.92 613.96 17.64 612.28 17.64L607.77 17.64Z"/>
+      </svg>
+      <span class="brand-divider" aria-hidden="true"></span>
+      <div>
+        <div class="eyebrow">EPG · сверка спецификаций</div>
+        <h1>Новая сверка</h1>
+      </div>
+    </div>
+    <ol class="steps" aria-label="Шаги сверки">
+      <li><span class="step" aria-current="step"><span class="n">1</span><span class="label">Загрузка</span></span></li>
+      <li><a href="review.html"><span class="n">2</span><span class="label">Разбор</span></a></li>
+      <li><span class="step off" title="Выгрузка в Excel — задача M1-D3"><span class="n">3</span><span class="label">Выгрузка</span></span></li>
+    </ol>
+    <span class="stage">макет · M1-D4</span>
+  </header>
+
+  <main class="workspace">
+    <section class="main scroll" aria-label="Загрузка документов">
+      <div class="main-inner">
+
+        <div class="intro">
+          <h2>Запрос партнёра и спецификация вендора</h2>
+          <p>Загрузите оба документа — система сверит все позиции и покажет только те, где нужна ваша проверка.</p>
+        </div>
+
+        <!-- 1. Сделка -->
+        <section class="card" aria-labelledby="deal-h">
+          <div class="card-h">
+            <h3 id="deal-h">Сделка</h3>
+            <div class="seg" role="group" aria-label="Режим">
+              <button type="button" data-mode="new" aria-pressed="true">Новая сделка</button>
+              <button type="button" data-mode="existing" aria-pressed="false">Продолжить существующую</button>
+            </div>
+          </div>
+
+          <div id="mode-new">
+            <div class="grid2">
+              <label class="field">
+                <span>Партнёр</span>
+                <input type="text" id="partner" placeholder="ООО «…»" autocomplete="off">
+                <span class="err" id="partner-err" hidden>Укажите партнёра — по нему сделку будут искать.</span>
+              </label>
+              <label class="field">
+                <span>Вендор</span>
+                <select id="vendor">
+                  <option value="Kaspersky" selected>Kaspersky</option>
+                  <option disabled>Другие вендоры — после пилота</option>
+                </select>
+                <span class="hint">На пилоте — только Kaspersky.</span>
+              </label>
+            </div>
+            <div class="grid3">
+              <label class="field">
+                <span>Категория</span>
+                <select id="category"><option selected>ИБ-ПО</option></select>
+              </label>
+              <label class="field">
+                <span>Менеджер EPG</span>
+                <input type="text" id="manager" readonly>
+              </label>
+              <label class="field">
+                <span>ПАМ <i>· если есть</i></span>
+                <select id="pam">
+                  <option value="">— не назначен —</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div id="mode-existing" hidden>
+            <label class="field">
+              <span>Сделка</span>
+              <select id="deal-pick"></select>
+            </label>
+            <div class="deal-docs" id="deal-docs"></div>
+          </div>
+        </section>
+
+        <!-- 2. Документы -->
+        <section class="card" aria-labelledby="docs-h">
+          <div class="card-h"><h3 id="docs-h">Документы</h3></div>
+          <div class="zones">
+            <div class="zone" data-zone="partner_request">
+              <div class="zone-h">
+                <div class="zone-ico docx" aria-hidden="true">DOCX</div>
+                <div>
+                  <div class="zone-t">Запрос партнёра</div>
+                  <div class="zone-s">Word (.docx) с кодами ЕНС. Один файл.</div>
+                </div>
+              </div>
+              <div class="files"></div>
+              <div class="drop">
+                <span>Перетащите файл сюда</span>
+                <button class="btn ghost sm" type="button" data-pick>Выбрать файл</button>
+              </div>
+              <input type="file" accept=".docx" hidden>
+            </div>
+            <div class="zone" data-zone="vendor_spec">
+              <div class="zone-h">
+                <div class="zone-ico xlsx" aria-hidden="true">XLSX</div>
+                <div>
+                  <div class="zone-t">Спецификация вендора</div>
+                  <div class="zone-s">Excel (.xlsx) с РРЦ. Можно несколько файлов.</div>
+                </div>
+              </div>
+              <div class="files"></div>
+              <div class="drop">
+                <span>Перетащите файлы сюда</span>
+                <button class="btn ghost sm" type="button" data-pick>Выбрать файлы</button>
+              </div>
+              <input type="file" accept=".xlsx" multiple hidden>
+            </div>
+          </div>
+        </section>
+
+        <!-- 3. Запуск -->
+        <div class="go" id="go">
+          <button class="btn lg" type="button" id="start" disabled>Начать сверку</button>
+          <span class="note" id="go-note">Добавьте запрос партнёра и хотя бы одну спецификацию вендора.</span>
+        </div>
+
+        <!-- Ход обработки -->
+        <section class="card run" id="run" aria-live="polite" aria-labelledby="run-h">
+          <div class="card-h"><h3 id="run-h">Обработка</h3></div>
+          <ol id="run-steps"></ol>
+          <div class="run-foot" id="run-foot" hidden>
+            <a class="btn" href="review.html">Перейти к разбору →</a>
+            <span class="muted" style="font-size:12.5px">Разбор откроется на первой строке, которая ждёт вашего решения.</span>
+          </div>
+        </section>
+
+        <p class="mock-note"><b>Это макет.</b> Файлы никуда не отправляются: браузер только считает их
+        отпечаток, чтобы показать, как система узнаёт повтор. Для проверки перетащите файлы сделки из папки
+        проекта — <code>partner-request-requirements.docx</code> и <code>СПЕКА финал.xlsx</code>. В режиме
+        «Продолжить существующую» они распознаются как уже загруженные.</p>
+      </div>
+    </section>
+
+    <aside class="side guide scroll" aria-label="Как загрузить">
+      <h2 class="panel-title">Как загрузить</h2>
+      <p class="lede">Нужны два документа: что просит партнёр и что ответил вендор. Остальное система
+      сделает сама — вам останутся только спорные строки.</p>
+
+      <details open>
+        <summary>Какие файлы подходят</summary>
+        <div class="body">
+          <ul>
+            <li><b>Запрос партнёра</b> — Word (<code>.docx</code>), таблица с кодами ЕНС.</li>
+            <li><b>Спецификация вендора</b> — Excel (<code>.xlsx</code>) с РРЦ. Если вендор прислал
+            несколько файлов — добавьте все.</li>
+            <li>PDF, сканы и письма не принимаются: сверка работает только с Word и Excel
+            (решение от 04.09.2026).</li>
+            <li>Старые форматы <code>.doc</code> и <code>.xls</code> — откройте и сохраните
+            как <code>.docx</code> / <code>.xlsx</code>.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details>
+        <summary>Если загрузить файл второй раз</summary>
+        <div class="body">
+          <p>Ничего не сломается. Система узнаёт файл <b>по содержимому, а не по имени</b>: даже
+          переименованная копия — это повтор. Строки не задвоятся, сверка не изменится.</p>
+          <p>Если файл уже есть в <b>другой</b> сделке, система подскажет — возможно, вы хотели
+          продолжить её, а не заводить новую.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Что система запомнит</summary>
+        <div class="body">
+          <p>Кто и когда загрузил каждый файл. У каждой позиции — точное место в документе:
+          строка таблицы Word или ячейка Excel. На это место можно сослаться в разговоре с партнёром
+          или вендором.</p>
+          <p class="muted">Исходный текст документов не меняется: всё, что система приводит к общему
+          виду, хранится отдельно.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Сколько ждать</summary>
+        <div class="body">
+          <p>Запрос на 4,5 тысячи позиций и спецификация на 4,3 тысячи разбираются меньше чем за минуту.
+          Страницу можно не держать открытой.</p>
+        </div>
+      </details>
+    </aside>
+  </main>
+</div>
+
+<script src="mock-data.js"></script>
+<script>
+(function(){
+  'use strict';
+
+  const DATA = window.MOCK;
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const ROLE = { partner_request: 'Запрос партнёра', vendor_spec: 'Спецификация вендора' };
+  const EXPECT = { partner_request: 'docx', vendor_spec: 'xlsx' };
+
+  // Существующие сделки. В макете одна — реальная сделка проекта: отпечатки её
+  // файлов взяты из загруженной базы, дата загрузки условная.
+  const DEALS = [{
+    id: 'rti-26-27', title: DATA.deal.title, contract: DATA.deal.contract,
+    loadedAt: '17.09.2026',
+    documents: DATA.deal.documents.map(d => Object.assign({}, d, {
+      size: { 'partner-request-requirements.docx': 1418746, 'СПЕКА финал.xlsx': 324928 }[d.file_name]
+    }))
+  }];
+
+  const state = { mode: 'new', dealId: DEALS[0].id, files: [], seq: 0 };
+
+  // ---------- поля сделки ----------
+  $('manager').value = DATA.deal.manager;
+  $('pam').insertAdjacentHTML('beforeend', '<option>' + esc(DATA.deal.pam) + '</option>');
+  $('deal-pick').innerHTML = DEALS.map(d =>
+    '<option value="' + d.id + '">' + esc(d.title) + ' · ' + esc(d.contract) + '</option>').join('');
+
+  function renderDealDocs(){
+    const d = DEALS.find(x => x.id === state.dealId);
+    $('deal-docs').innerHTML = '<div class="muted" style="margin-bottom:4px">Уже загружено в сделку:</div>' +
+      d.documents.map(doc => '<div class="row"><span class="role">' + ROLE[doc.source_role] + '</span>' +
+        '<span class="name">' + esc(doc.file_name) + '</span><span class="muted">' + d.loadedAt + '</span></div>').join('');
+  }
+
+  document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+  function setMode(mode){
+    state.mode = mode;
+    document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
+    $('mode-new').hidden = mode !== 'new';
+    $('mode-existing').hidden = mode !== 'existing';
+    if (mode === 'existing') renderDealDocs();
+    state.files.forEach(classify);
+    render();
+  }
+  $('deal-pick').addEventListener('change', (e) => { state.dealId = e.target.value; renderDealDocs(); state.files.forEach(classify); render(); });
+  $('partner').addEventListener('input', () => { $('partner-err').hidden = true; render(); });
+
+  // ---------- отпечаток файла ----------
+  async function fingerprint(file){
+    if (window.crypto && crypto.subtle && window.isSecureContext !== false){
+      try {
+        const buf = await file.arrayBuffer();
+        const hash = await crypto.subtle.digest('SHA-256', buf);
+        return { sha: Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('') };
+      } catch (e) { /* ниже — запасной путь */ }
+    }
+    return { sha: null };
+  }
+  const extOf = (name) => (name.split('.').pop() || '').toLowerCase();
+  const sizeOf = (n) => n < 1024 * 1024 ? Math.max(1, Math.round(n / 1024)) + ' КБ'
+                                        : (n / 1024 / 1024).toFixed(1).replace('.', ',') + ' МБ';
+
+  // ---------- правила для файла ----------
+  function knownDoc(f){
+    // Совпадение по отпечатку; если браузер не умеет считать SHA-256 — по имени и размеру.
+    for (const d of DEALS){
+      for (const doc of d.documents){
+        const same = f.sha ? f.sha === doc.file_sha256 : (f.file.name === doc.file_name && f.file.size === doc.size);
+        if (same) return { deal: d, doc };
+      }
+    }
+    return null;
+  }
+  function classify(f){
+    if (f.checking) return;
+    const ext = extOf(f.file.name);
+    f.state = null; f.msg = ''; f.action = null; f.soft = false;
+    if (ext === 'doc' || ext === 'xls'){
+      f.state = 'bad'; f.msg = 'Старый формат .' + ext + '. Откройте файл и сохраните как .' + ext + 'x — затем добавьте снова.';
+      return;
+    }
+    if (ext !== 'docx' && ext !== 'xlsx'){
+      f.state = 'bad'; f.msg = 'Этот формат не принимаем. Нужен Word (.docx) или Excel (.xlsx) — PDF и сканы в сверку не входят.';
+      return;
+    }
+    if (ext !== EXPECT[f.zone]){
+      const other = f.zone === 'partner_request' ? 'vendor_spec' : 'partner_request';
+      f.state = 'warn';
+      f.msg = (ext === 'xlsx' ? 'Это Excel — похоже на спецификацию вендора.' : 'Это Word — похоже на запрос партнёра.');
+      f.action = { label: 'Перенести в «' + ROLE[other] + '»', move: other };
+      return;
+    }
+    const twin = state.files.find(x => x !== f && x.sha && x.sha === f.sha && x.id < f.id);
+    if (twin){
+      f.state = 'bad'; f.msg = 'Этот же файл уже добавлен' + (twin.file.name !== f.file.name ? ' под именем «' + twin.file.name + '»' : '') + '.';
+      return;
+    }
+    const known = knownDoc(f);
+    if (known && state.mode === 'existing' && known.deal.id === state.dealId){
+      const renamed = known.doc.file_name !== f.file.name;
+      f.state = 'dup';
+      f.msg = 'Уже загружен в эту сделку ' + known.deal.loadedAt +
+        (renamed ? ' под именем «' + known.doc.file_name + '»' : '') +
+        '. Повторно строки не добавятся.';
+      return;
+    }
+    if (known && state.mode === 'new'){
+      f.state = 'warn';
+      f.msg = 'Такой же файл есть в сделке «' + known.deal.title + '» (' + known.deal.contract + '). Возможно, вы хотели продолжить её?';
+      f.action = { label: 'Продолжить эту сделку', deal: known.deal.id };
+      f.soft = true;
+      return;
+    }
+    f.state = 'new';
+    f.msg = f.sha ? 'Новый файл — будет добавлен.' : 'Новый файл. Браузер не дал посчитать отпечаток — повтор проверен по имени и размеру.';
+  }
+
+  // ---------- добавление файлов ----------
+  async function addFiles(zone, list){
+    for (const file of list){
+      if (zone === 'partner_request' && extOf(file.name) === 'docx'){
+        // Запрос партнёра — один файл: новый Word заменяет прежний. Файл не того
+        // формата прежний не вытесняет — он получит предупреждение рядом.
+        state.files = state.files.filter(f => f.zone !== zone);
+      }
+      const f = { id: ++state.seq, zone, file, sha: null, checking: true };
+      state.files.push(f);
+      render();
+      const fp = await fingerprint(file);
+      f.sha = fp.sha; f.checking = false;
+      state.files.forEach(classify);
+      render();
+      if (zone === 'partner_request') break;
+    }
+  }
+
+  document.querySelectorAll('.zone').forEach(zone => {
+    const input = zone.querySelector('input[type=file]');
+    zone.querySelector('[data-pick]').addEventListener('click', () => input.click());
+    input.addEventListener('change', () => { addFiles(zone.dataset.zone, Array.from(input.files)); input.value = ''; });
+    zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('over'); });
+    zone.addEventListener('dragleave', (e) => { if (!zone.contains(e.relatedTarget)) zone.classList.remove('over'); });
+    zone.addEventListener('drop', (e) => {
+      e.preventDefault(); zone.classList.remove('over');
+      addFiles(zone.dataset.zone, Array.from(e.dataTransfer.files || []));
+    });
+    zone.querySelector('.files').addEventListener('click', (e) => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      const f = state.files.find(x => x.id === Number(b.dataset.id));
+      if (!f) return;
+      if ('remove' in b.dataset){ state.files = state.files.filter(x => x !== f); }
+      else if (b.dataset.move){
+        if (b.dataset.move === 'partner_request') state.files = state.files.filter(x => x.zone !== 'partner_request' || x === f);
+        f.zone = b.dataset.move;
+      }
+      else if (b.dataset.deal){ state.dealId = b.dataset.deal; $('deal-pick').value = b.dataset.deal; setMode('existing'); return; }
+      state.files.forEach(classify);
+      render();
+    });
+  });
+  // Бросок мимо зон не должен открывать файл в браузере вместо страницы.
+  window.addEventListener('dragover', (e) => e.preventDefault());
+  window.addEventListener('drop', (e) => e.preventDefault());
+
+  // ---------- отрисовка ----------
+  const PILL = { new: ['new', 'новый'], dup: ['dup', 'повтор'], warn: ['warn', 'проверьте'], bad: ['bad', 'не принят'] };
+  function fileHtml(f){
+    const pill = f.checking ? ['wait', 'проверяем'] : PILL[f.state];
+    const msg = f.checking ? 'Считаем отпечаток файла, чтобы узнать повтор…' : f.msg;
+    let act = '';
+    if (!f.checking && f.action){
+      act = '<div class="file-act"><button class="linklike" type="button" data-id="' + f.id + '"' +
+        (f.action.move ? ' data-move="' + f.action.move + '"' : ' data-deal="' + f.action.deal + '"') + '>' +
+        esc(f.action.label) + '</button></div>';
+    }
+    return '<div class="file"><div class="file-top"><div class="file-name">' + esc(f.file.name) +
+      '<span class="file-size">' + sizeOf(f.file.size) + '</span></div>' +
+      '<button class="x" type="button" data-remove data-id="' + f.id + '" aria-label="Убрать ' + esc(f.file.name) + '">×</button></div>' +
+      '<div class="file-msg"><span class="pill ' + pill[0] + '">' + pill[1] + '</span><span>' + esc(msg) + '</span></div>' + act + '</div>';
+  }
+  function render(){
+    document.querySelectorAll('.zone').forEach(zone => {
+      const mine = state.files.filter(f => f.zone === zone.dataset.zone);
+      zone.querySelector('.files').innerHTML = mine.map(fileHtml).join('');
+      const drop = zone.querySelector('.drop span');
+      drop.textContent = mine.length
+        ? (zone.dataset.zone === 'partner_request' ? 'Перетащите другой файл, чтобы заменить' : 'Можно добавить ещё')
+        : (zone.dataset.zone === 'partner_request' ? 'Перетащите файл сюда' : 'Перетащите файлы сюда');
+    });
+    renderGo();
+  }
+
+  function renderGo(){
+    const btn = $('start'), note = $('go-note');
+    const files = state.files;
+    const checking = files.some(f => f.checking);
+    const blocked = files.filter(f => !f.checking && (f.state === 'bad' || (f.state === 'warn' && !f.soft)));
+    const usable = (zone) => files.some(f => f.zone === zone && !f.checking &&
+      (f.state === 'new' || f.state === 'dup' || f.soft));
+    const fresh = files.filter(f => !f.checking && (f.state === 'new' || f.soft));
+    let ok = false, text = '', warn = false, label = 'Начать сверку', href = null;
+
+    if (checking){ text = 'Проверяем файлы…'; }
+    else if (blocked.length){ warn = true; text = 'Уберите или перенесите файлы с пометкой «не принят» / «проверьте».'; }
+    else if (state.mode === 'new'){
+      const partnerOk = $('partner').value.trim().length > 0;
+      if (!usable('partner_request') || !usable('vendor_spec')) text = 'Добавьте запрос партнёра и хотя бы одну спецификацию вендора.';
+      else if (!partnerOk){ warn = true; text = 'Укажите партнёра в карточке сделки.'; }
+      else { ok = true; text = 'Будет создана сделка и загружено файлов: ' + fresh.length + '.'; }
+    } else {
+      if (!files.length){ text = 'Добавьте новые файлы — например, обновлённую спецификацию вендора.'; }
+      else if (!fresh.length){ ok = true; label = 'Открыть разбор'; href = 'review.html';
+        text = 'Новых файлов нет — всё это уже в сделке. Сверка не изменится.'; }
+      else { ok = true; label = 'Добавить и пересверить';
+        text = 'Новых файлов: ' + fresh.length + '. Решения, уже принятые по строкам, сохранятся в журнале.'; }
+    }
+    btn.disabled = !ok;
+    btn.textContent = label;
+    btn.dataset.href = href || '';
+    note.textContent = text;
+    note.className = 'note' + (warn ? ' warn' : '');
+  }
+
+  // ---------- запуск: ход обработки ----------
+  function isRealDeal(){
+    const shas = new Set(DEALS[0].documents.map(d => d.file_sha256));
+    const need = state.files.filter(f => f.state === 'new' || f.state === 'dup' || f.soft);
+    return need.length > 0 && need.every(f => shas.has(f.sha));
+  }
+  $('start').addEventListener('click', () => {
+    if ($('start').dataset.href){ location.href = $('start').dataset.href; return; }
+    if (state.mode === 'new' && !$('partner').value.trim()){ $('partner-err').hidden = false; $('partner').focus(); return; }
+    const real = isRealDeal();
+    const d = DATA.deal;
+    const steps = [
+      { t: 'Сохраняем документы', d: 'Файлов: ' + state.files.filter(f => f.state === 'new' || f.soft).length +
+        '. Запомнили, кто и когда загрузил.' },
+      { t: 'Извлекаем позиции', d: real
+          ? 'Запрос партнёра — ' + d.partnerPositions.toLocaleString('ru-RU') + ' позиций и 49 групп требований. ' +
+            'Спецификация — ' + d.vendorPositions.toLocaleString('ru-RU') + ' позиций. У каждой — место в документе.'
+          : 'В макете не выполняется — числа появятся на настоящих файлах сделки.' },
+      { t: 'Приводим к общему виду', d: 'Наименования, единицы, диапазоны и коды — отдельно от исходного текста.' },
+      { t: 'Сопоставляем', d: 'Движок сопоставления в работе (M1-C). В разборе показаны подготовленные вручную результаты.', skip: true }
+    ];
+    $('run').classList.add('on');
+    $('run-foot').hidden = true;
+    $('run-steps').innerHTML = steps.map((s, i) =>
+      '<li data-i="' + i + '"><span class="mark">✓</span><div><div class="t">' + esc(s.t) + '</div>' +
+      '<div class="d" hidden>' + esc(s.d) + '</div></div></li>').join('');
+    $('start').disabled = true;
+    $('run').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const items = Array.from($('run-steps').children);
+    let i = 0;
+    (function tick(){
+      if (i > 0){
+        const prev = items[i - 1];
+        prev.classList.remove('active');
+        prev.classList.add(steps[i - 1].skip ? 'skip' : 'done');
+        prev.querySelector('.d').hidden = false;
+      }
+      if (i === items.length){ $('run-foot').hidden = false; return; }
+      items[i].classList.add('active');
+      i++;
+      setTimeout(tick, 650);
+    })();
+  });
+
+
+  render();
+})();
+</script>
+</body>
+</html>

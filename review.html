@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Разбор сверки — макет</title>
+<meta name="theme-color" content="#1E2849">
+<!-- Макет M1-D1: экран разбора спорных строк (Review UI).
+     Требования — docs/10-roadmap.md (M1-D1), решения по дизайну — docs/18-review-ui.md.
+     Данные — design/mock-data.js: реальные строки сделки, статусы проставлены вручную. -->
+<link rel="stylesheet" href="axoft.css">
+<style>
+  /* ---------- полоса сделки ---------- */
+  .dealbar{
+    display:flex; align-items:center; gap:22px; flex-wrap:wrap;
+    padding:12px 22px;
+    background:var(--bg-elevated);
+    border-bottom:1px solid var(--line);
+    box-shadow:0 6px 20px -16px rgba(30,40,73,.35);
+    position:relative; z-index:3;
+  }
+  .db-progress{ flex:1 1 320px; min-width:260px; }
+  .db-title{ font-size:13.5px; color:var(--navy); letter-spacing:-0.006em; }
+  .db-title b{ font-weight:650; font-variant-numeric:tabular-nums; }
+  .bar{
+    height:6px; border-radius:999px; background:var(--st-review-bg);
+    overflow:hidden; margin:7px 0 5px;
+  }
+  .bar i{
+    display:block; height:100%; width:0;
+    background:linear-gradient(90deg, var(--teal) 0%, var(--teal-dark) 100%);
+    border-radius:999px; transition:width var(--dur-slow) var(--ease-out);
+  }
+  .db-sub{ font-size:12px; color:var(--ink-soft); }
+  .db-facts{ display:flex; gap:22px; margin:0; flex-wrap:wrap; }
+  .db-facts div{ min-width:0; }
+  .db-facts dt{ font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); }
+  .db-facts dd{ margin:1px 0 0; font-size:13px; font-weight:600; color:var(--navy); white-space:nowrap; }
+  .db-actions{ display:flex; gap:8px; }
+
+  /* ---------- рабочая зона ---------- */
+  .workspace{ flex:1; min-height:0; display:flex; }
+  .list{ flex:1; min-width:0; display:flex; flex-direction:column; }
+  .toolbar{ padding:12px 22px 10px; display:flex; flex-direction:column; gap:8px; }
+  .tb-row{ display:flex; align-items:center; gap:8px 14px; flex-wrap:wrap; }
+  .tb-left{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .tb-row.split{ justify-content:space-between; }
+  .search{
+    flex:0 1 250px; min-width:180px;
+    border:1px solid var(--line-strong); border-radius:999px;
+    padding:6px 13px; font:inherit; font-size:13px; background:var(--bg-elevated);
+    transition:border-color var(--dur) ease, box-shadow var(--dur) ease;
+  }
+  .search:focus{ border-color:var(--teal); }
+  .tb-right{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .toggle{ display:inline-flex; align-items:center; gap:7px; font-size:12.5px; color:var(--ink-soft); cursor:pointer; user-select:none; }
+  .toggle input{ accent-color:var(--teal-dark); width:15px; height:15px; margin:0; }
+  select.sort{
+    border:1px solid var(--line-strong); border-radius:var(--radius-sm);
+    padding:5px 9px; font:inherit; font-size:12.5px; color:var(--navy); background:var(--bg-elevated);
+  }
+  .reasons{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .reasons .lbl{ font-size:12px; color:var(--ink-soft); margin-right:2px; }
+  .reasons .chip{ font-size:12px; padding:3px 10px; box-shadow:none; }
+
+  .tablewrap{ flex:1; min-height:0; overflow:auto; padding:0 22px 12px; }
+  table.grid{
+    width:100%; border-collapse:separate; border-spacing:0;
+    background:var(--bg-elevated);
+    border:1px solid var(--line); border-radius:var(--radius);
+    box-shadow:var(--shadow-card);
+    font-size:13px;
+  }
+  .grid thead th{
+    position:sticky; top:0; z-index:2;
+    background:rgba(250,250,251,.96);
+    backdrop-filter:saturate(1.4) blur(6px);
+    text-align:left; font-weight:600; font-size:11px; letter-spacing:.04em; text-transform:uppercase;
+    color:var(--ink-soft); padding:9px 10px; border-bottom:1px solid var(--line-strong);
+    white-space:nowrap;
+  }
+  .grid thead th:first-child{ border-top-left-radius:var(--radius); padding-left:16px; }
+  .grid thead th:last-child{ border-top-right-radius:var(--radius); }
+  .grid td{ padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .grid tr.row{ cursor:pointer; transition:background var(--dur) ease; }
+  .grid tr.row td:first-child{ padding-left:16px; box-shadow:inset 3px 0 0 var(--mark, transparent); }
+  .grid tr.row:hover{ background:#F3F8F9; }
+  .grid tr.row.is-sel{ background:var(--teal-pale); }
+  .grid tr.row.is-sel td:first-child{ box-shadow:inset 5px 0 0 var(--mark, var(--teal)); }
+  .grid tr.row.is-done{ --mark:var(--line-strong); }
+  .grid tr.row.is-done .c-name .nm{ color:var(--ink-soft); }
+  .grid tr.row:focus-visible{ outline:2px solid var(--teal); outline-offset:-2px; box-shadow:none; }
+  tr.st-matched{ --mark:var(--st-matched-mark); }
+  tr.st-partial_match{ --mark:var(--st-partial-mark); }
+  tr.st-needs_review{ --mark:var(--st-review-mark); }
+  tr.st-mismatch{ --mark:var(--st-mismatch-mark); }
+  tr.st-no_data{ --mark:var(--st-nodata-mark); }
+  .c-no{ width:62px; color:var(--ink-soft); white-space:nowrap; }
+  .c-st{ width:150px; }
+  .c-name .nm{ font-weight:600; color:var(--navy); letter-spacing:-0.006em; line-height:1.35; }
+  .c-name .sub{ font-size:12px; color:var(--ink-soft); margin-top:2px; }
+  .c-reason{ width:170px; }
+  .c-price{ width:130px; text-align:right; white-space:nowrap; }
+  .c-conf{ width:70px; text-align:right; color:var(--ink-soft); }
+  .c-dec{ width:150px; font-size:12px; }
+  .grid .r{ text-align:right; }
+  body:not(.show-conf) .c-conf{ display:none; }
+  .reason{
+    display:inline-block; font-size:12px; font-weight:600; color:var(--st-review);
+    border:1px solid rgba(180,72,10,.28); border-radius:6px; padding:1px 7px; line-height:1.5;
+  }
+  .reason.nodata{ color:var(--st-nodata); border-color:var(--line-strong); }
+  .flagmark{
+    display:inline-grid; place-items:center; width:17px; height:17px; margin-left:5px;
+    border-radius:50%; font-size:10.5px; font-weight:700; vertical-align:1px;
+    color:var(--teal-dark); background:var(--teal-pale);
+  }
+  .dec{ display:inline-flex; align-items:center; gap:6px; color:var(--ink); font-weight:600; }
+  .dec .who{ font-weight:400; color:var(--ink-soft); }
+  .none{ color:var(--ink-soft); }
+
+  tr.grp td{
+    background:var(--bg); padding:12px 16px 6px; border-bottom:1px solid var(--line);
+    font-size:12px; font-weight:600; color:var(--navy);
+  }
+  tr.grp .gcnt{ font-family:var(--mono); color:var(--ink-soft); font-weight:500; margin-left:4px; }
+  tr.grp .gnote{ font-weight:400; color:var(--ink-soft); margin-left:8px; }
+  tr.grp .linklike{ margin-left:10px; font-size:12px; }
+  tr.empty td{ padding:28px 16px; text-align:center; color:var(--ink-soft); }
+
+  .list-foot{ padding:0 22px 12px; }
+  .list-foot .mock-note{ margin:0; padding:7px 12px; }
+
+  /* ---------- карточка строки ---------- */
+  .detail{
+    flex:0 0 clamp(460px, 37vw, 560px); width:clamp(460px, 37vw, 560px);
+    border-left:1px solid var(--line);
+    background:var(--bg-side);
+    box-shadow:-10px 0 28px -24px rgba(22,30,56,.25);
+    display:flex; flex-direction:column; min-height:0;
+  }
+  .d-scroll{ flex:1 1 auto; min-height:0; overflow-y:auto; padding:18px 22px 22px; }
+  .d-top{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .d-eyebrow{ font-size:11px; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-soft); }
+  .d-nav{ display:flex; gap:6px; }
+  .d-nav .btn{ height:28px; padding:0 10px; font-size:12px; }
+  .d-close{ display:none; }
+  .d-status{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:10px 0 6px; }
+  .d-title{ margin:0; font-size:18px; font-weight:650; letter-spacing:-0.018em; line-height:1.25; color:var(--navy); }
+  .d-meta{ font-size:12px; color:var(--ink-soft); margin-top:5px; }
+  .d-body{ animation:rise var(--dur) var(--ease-out) both; }
+
+  .callout{
+    margin-top:14px; border-radius:var(--radius); padding:12px 14px;
+    font-size:13.5px; line-height:1.55;
+    background:var(--bg-elevated); border:1px solid var(--line);
+  }
+  .callout b{ display:block; font-size:12px; letter-spacing:.02em; margin-bottom:3px; }
+  .callout p{ margin:0; }
+  .callout.needs_review{ background:var(--st-review-bg); border-color:transparent; }
+  .callout.needs_review b{ color:var(--st-review); }
+  .callout.no_data{ background:var(--st-nodata-bg); border-color:transparent; }
+  .callout.no_data b{ color:var(--st-nodata); }
+  .callout.matched b{ color:var(--st-matched); }
+
+  .d-sec{ margin-top:18px; }
+  .d-sec > h3, .d-sec > summary{
+    font-size:11px; letter-spacing:.06em; text-transform:uppercase; font-weight:600;
+    color:var(--ink-soft); margin:0 0 8px;
+  }
+  table.params{ width:100%; border-collapse:collapse; font-size:13px; background:var(--bg-elevated);
+    border:1px solid var(--line); border-radius:var(--radius-sm); overflow:hidden; }
+  .params th{ text-align:left; font-size:11px; font-weight:600; color:var(--ink-soft); padding:7px 10px;
+    border-bottom:1px solid var(--line); background:var(--bg-side); }
+  .params td{ padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .params tr:last-child td{ border-bottom:none; }
+  .params td:first-child{ font-weight:600; color:var(--navy); width:30%; }
+  .params tr.conflict td{ background:#FFF6EE; }
+  .params tr.unknown td{ background:#F7F7F9; }
+  .ps{ font-size:11px; font-weight:600; border-radius:999px; padding:2px 8px; white-space:nowrap; }
+  .ps.match{ color:var(--st-matched); background:var(--st-matched-bg); }
+  .ps.conflict{ color:var(--st-review); background:var(--st-review-bg); }
+  .ps.unknown{ color:var(--st-nodata); background:var(--st-nodata-bg); }
+  .na{ color:var(--ink-soft); font-style:italic; }
+
+  .flags{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:7px; }
+  .flags li{ display:flex; gap:9px; font-size:12.5px; line-height:1.5; }
+  .code{
+    flex:0 0 auto; align-self:flex-start;
+    font-family:var(--mono); font-size:10.5px; font-weight:600;
+    color:var(--teal-dark); background:var(--teal-pale); border-radius:5px; padding:1px 6px; margin-top:1px;
+  }
+
+  .sides{ display:flex; flex-direction:column; gap:10px; }
+  .side-card{
+    background:var(--bg-elevated); border:1px solid var(--line);
+    border-radius:var(--radius); padding:12px 14px; box-shadow:var(--shadow-sm);
+  }
+  .side-h{ display:flex; justify-content:space-between; align-items:baseline; gap:8px;
+    font-size:11px; letter-spacing:.06em; text-transform:uppercase; font-weight:600; color:var(--navy); }
+  .side-h .price{ font-size:15px; letter-spacing:-0.01em; text-transform:none; font-family:var(--mono); }
+  .raw{ margin:7px 0 9px; font-size:13px; line-height:1.5; }
+  .raw mark{ background:#FFE3C9; color:inherit; border-radius:3px; padding:0 2px; box-shadow:0 0 0 1px rgba(242,113,28,.25); }
+  .kv{ display:grid; grid-template-columns:auto 1fr; gap:3px 12px; margin:0; font-size:12.5px; }
+  .kv dt{ color:var(--ink-soft); white-space:nowrap; }
+  .kv dd{ margin:0; min-width:0; overflow-wrap:anywhere; }
+  .kv dd.hl{ font-weight:600; color:var(--st-review); }
+  .kv dd.gap{ color:var(--ink-soft); font-style:italic; }
+  .src{
+    margin-top:9px; padding-top:8px; border-top:1px dashed var(--line-strong);
+    font-size:12px; color:var(--ink-soft); display:flex; gap:6px; flex-wrap:wrap; align-items:baseline;
+  }
+  .src .path{ font-family:var(--mono); font-size:11.5px; color:var(--ink); }
+  .side-empty{ font-size:13px; color:var(--ink-soft); margin:8px 0 0; }
+
+  details.d-sec{ background:var(--bg-elevated); border:1px solid var(--line); border-radius:var(--radius); padding:10px 14px; }
+  details.d-sec summary{ cursor:pointer; list-style:none; display:flex; align-items:center; gap:8px; margin:0; }
+  details.d-sec summary::-webkit-details-marker{ display:none; }
+  details.d-sec summary::before{
+    content:''; width:6px; height:6px; border-right:1.6px solid var(--teal-dark); border-bottom:1.6px solid var(--teal-dark);
+    transform:rotate(-45deg); transition:transform var(--dur) var(--ease-out);
+  }
+  details.d-sec[open] summary::before{ transform:rotate(45deg); }
+  .req{ white-space:pre-line; font-size:12.5px; line-height:1.55; margin-top:8px; max-height:220px; overflow:auto; }
+
+  .conf-line{ font-size:12.5px; color:var(--ink-soft); }
+  body:not(.show-conf) .conf-line{ display:none; }
+
+  .hist{ list-style:none; margin:0; padding:0; font-size:12.5px; }
+  .hist li{ position:relative; padding:0 0 10px 18px; }
+  .hist li::before{ content:''; position:absolute; left:3px; top:7px; width:7px; height:7px; border-radius:50%; background:var(--line-strong); }
+  .hist li.me::before{ background:var(--teal); }
+  .hist li + li::after{ content:''; position:absolute; left:6px; top:-5px; height:12px; width:1px; background:var(--line-strong); }
+  .hist .when{ color:var(--ink-soft); }
+  .hist q{ color:var(--ink); }
+
+  /* ---------- форма решения ---------- */
+  .decide{
+    flex:0 0 auto; border-top:1px solid var(--line); background:var(--bg-elevated);
+    padding:12px 22px 14px; box-shadow:0 -6px 20px -14px rgba(30,40,73,.22);
+  }
+  .decide h3{ margin:0 0 3px; font-size:14px; font-weight:650; color:var(--navy); letter-spacing:-0.011em; }
+  .decide .sub{ font-size:12px; color:var(--ink-soft); margin:0 0 8px; line-height:1.45; }
+  .seg{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:9px; }
+  .seg button{
+    display:inline-flex; align-items:center; gap:7px;
+    border:1px solid var(--line-strong); background:var(--bg-elevated); color:var(--ink);
+    font-size:12.5px; font-weight:500; padding:5px 11px; border-radius:999px; cursor:pointer;
+    transition:transform var(--dur-fast) var(--ease-out), border-color var(--dur) ease, background var(--dur) ease;
+  }
+  .seg button:active{ transform:scale(.96); }
+  .seg button:hover{ border-color:var(--teal); }
+  .seg button[aria-pressed="true"]{ border-color:var(--navy); background:var(--navy); color:#FFFFFF; font-weight:600; }
+  .quick{ display:flex; flex-wrap:wrap; gap:5px; margin-bottom:7px; }
+  .quick button{
+    border:1px dashed var(--line-strong); background:transparent; color:var(--teal-dark);
+    font-size:11.5px; padding:3px 9px; border-radius:999px; cursor:pointer;
+  }
+  .quick button:hover{ border-color:var(--teal); background:var(--teal-pale); }
+  .decide textarea{ min-height:52px; font-size:13px; }
+  .decide-bottom{ display:flex; align-items:center; gap:10px; margin-top:9px; flex-wrap:wrap; }
+  .decide .note{ font-size:11.5px; color:var(--ink-soft); line-height:1.4; flex:1 1 200px; }
+  .decide .note.warn{ color:var(--st-review); }
+  .decided{
+    display:flex; gap:10px; align-items:flex-start; justify-content:space-between;
+    background:var(--bg); border-radius:var(--radius-sm); padding:10px 12px; font-size:13px;
+  }
+  .decided .what{ font-weight:600; color:var(--navy); }
+  .decided q{ display:block; color:var(--ink); font-weight:400; margin-top:2px; }
+  .decided .who{ font-size:12px; color:var(--ink-soft); margin-top:3px; }
+
+  /* ---------- тост ---------- */
+  .toast{
+    position:fixed; left:50%; bottom:22px; transform:translateX(-50%) translateY(20px);
+    background:var(--navy); color:#FFFFFF; font-size:13px; line-height:1.45;
+    padding:10px 16px; border-radius:var(--radius); box-shadow:var(--shadow-raise);
+    max-width:min(560px, calc(100vw - 32px)); opacity:0; pointer-events:none; z-index:50;
+    transition:opacity var(--dur) ease, transform var(--dur) var(--ease-out);
+  }
+  .toast.on{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  /* ---------- инструкция в диалоге ---------- */
+  dialog.guide-dlg{
+    border:none; border-radius:var(--radius-lg); padding:0; width:min(560px, calc(100vw - 32px));
+    max-height:min(760px, calc(100vh - 48px)); box-shadow:var(--shadow-raise); color:var(--ink);
+  }
+  dialog.guide-dlg::backdrop{ background:rgba(22,30,56,.38); backdrop-filter:blur(2px); }
+  dialog.guide-dlg[open]{ animation:rise var(--dur) var(--ease-out) both; }
+  .dlg-head{ display:flex; justify-content:space-between; align-items:center; padding:16px 20px 6px; }
+  .dlg-body{ padding:0 20px 18px; overflow:auto; max-height:calc(min(760px, 100vh - 48px) - 60px); }
+  kbd{
+    font-family:var(--mono); font-size:11px; border:1px solid var(--line-strong); border-bottom-width:2px;
+    border-radius:5px; padding:0 5px; background:var(--bg-elevated);
+  }
+
+  /* ---------- узкий экран: карточка становится выезжающей панелью ---------- */
+  @media (max-width:1180px){
+    .detail{
+      position:fixed; top:0; right:0; bottom:0; z-index:20;
+      width:min(560px, 100vw); transform:translateX(102%);
+      transition:transform var(--dur-slow) var(--ease-drawer);
+    }
+    body.drawer-open .detail{ transform:none; box-shadow:-20px 0 60px -20px rgba(22,30,56,.45); }
+    .d-close{ display:inline-flex; }
+    .scrim{ position:fixed; inset:0; background:rgba(22,30,56,.3); z-index:15; opacity:0; pointer-events:none;
+      transition:opacity var(--dur) ease; }
+    body.drawer-open .scrim{ opacity:1; pointer-events:auto; }
+  }
+  @media (max-width:760px){
+    /* на телефоне прокручивается вся страница, а не только таблица:
+       иначе фильтры съедают экран и видно две строки */
+    .shell{ height:auto; min-height:100vh; }
+    .workspace{ display:block; }
+    .tablewrap{ overflow:visible; }
+    /* в выезжающей карточке форма решения идёт в общем потоке, а не закреплена снизу */
+    .detail{ display:block; overflow-y:auto; }
+    .d-scroll{ overflow:visible; }
+    .decide{ box-shadow:none; }
+    .dealbar{ padding:10px 15px; gap:12px; }
+    .db-facts{ display:none; }
+    .toolbar{ padding:12px 15px 8px; }
+    .tablewrap{ padding:0 10px 12px; }
+    .c-reason, .c-dec, .c-st{ display:none; }
+    .grid td, .grid thead th{ padding:8px 6px; }
+    .grid thead th:first-child, .grid tr.row td:first-child{ padding-left:12px; }
+    .c-no{ width:auto; }
+    .c-price{ width:auto; font-size:12px; }
+    .d-scroll{ padding:16px 16px 20px; }
+    .decide{ padding:12px 16px 14px; }
+    .list-foot{ padding:0 12px 14px; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="top">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 625.34 199.66" fill="currentColor" role="img" aria-label="Axoft">
+        <path d="M40.47 45.41 0 155.15 37.68 155.15 41.63 142.32 81.12 142.32 85.07 155.15 122.75 155.15 82.28 45.41 40.49 45.41ZM50.51 113.36 61.37 77.99 72.23 113.36 50.51 113.36Z"/>
+        <path d="M341.46 43.6C307.57 43.6 281.41 66.63 281.41 100.36 281.41 134.09 307.57 157.12 341.46 157.12 375.35 157.12 401.51 134.09 401.51 100.36 401.51 66.63 375.35 43.6 341.46 43.6ZM341.46 127.84C325.5 127.84 315.14 115.66 315.14 100.36 315.14 85.06 325.5 72.88 341.46 72.88 357.42 72.88 367.78 85.06 367.78 100.36 367.78 115.66 357.41 127.84 341.46 127.84Z"/>
+        <path d="M413.35 155.15 446.59 155.15 446.59 114.18 495.45 114.18 495.45 85.22 446.59 85.22 446.59 74.37 496.6 74.37 496.6 45.41 413.35 45.41 413.35 155.15Z"/>
+        <path d="M504.83 45.41 504.83 74.37 534.28 74.37 534.28 155.15 567.51 155.15 567.51 74.37 596.79 74.37 596.79 45.41 504.83 45.41Z"/>
+        <path d="M288.57 45.31 253.63 45.31 211.41 105.13 144.63 199.66 179.57 199.66 229.66 128.24 229.75 128.36 249.21 154.47 285.34 154.47 247.08 103.99 288.57 45.31Z"/>
+        <path d="M160.3 155.31 202.43 95.62 202.43 95.62 269.91 0 234.87 0 184.27 72 164.79 45.87 128.57 45.87 166.92 96.49 125.26 155.31 160.3 155.31Z"/>
+        <path d="M596.79 23.91C596.79 15.97 603.19 9.63 611.07 9.63 618.95 9.63 625.34 15.96 625.34 23.91 625.34 31.86 619.01 38.18 611.07 38.18 603.13 38.18 596.79 31.78 596.79 23.91ZM598.68 23.91C598.68 30.71 604.2 36.3 611.07 36.3 617.94 36.3 623.39 30.71 623.39 23.91 623.39 17.11 617.87 11.59 611.07 11.59 604.27 11.59 598.68 17.04 598.68 23.91ZM614.97 32.12 610.73 25.65 607.77 25.65 607.77 32.12 605.61 32.12 605.61 15.76 612.28 15.76C615.11 15.76 617.47 17.71 617.47 20.74 617.47 24.38 614.24 25.59 613.3 25.59L617.68 32.12 614.99 32.12ZM607.77 17.64 607.77 23.7 612.28 23.7C613.96 23.7 615.24 22.42 615.24 20.74 615.24 18.92 613.96 17.64 612.28 17.64L607.77 17.64Z"/>
+      </svg>
+      <span class="brand-divider" aria-hidden="true"></span>
+      <div>
+        <div class="eyebrow">EPG · сверка спецификаций</div>
+        <h1 id="deal-title">Сделка</h1>
+      </div>
+    </div>
+    <ol class="steps" aria-label="Шаги сверки">
+      <li><a class="done" href="upload.html"><span class="n">✓</span><span class="label">Загрузка</span></a></li>
+      <li><span class="step" aria-current="step"><span class="n">2</span><span class="label">Разбор</span></span></li>
+      <li><span class="step off" title="Выгрузка в Excel — задача M1-D3"><span class="n">3</span><span class="label">Выгрузка</span></span></li>
+    </ol>
+    <span class="stage">макет · M1-D1</span>
+  </header>
+
+  <section class="dealbar" aria-label="Ход разбора">
+    <div class="db-progress">
+      <div class="db-title">Разобрано <b id="done-n">0</b> из <b id="total-n">0</b> строк «требует проверки»</div>
+      <div class="bar" role="progressbar" aria-labelledby="done-n" id="bar-wrap" aria-valuemin="0"><i id="bar"></i></div>
+      <div class="db-sub" id="db-sub"></div>
+    </div>
+    <dl class="db-facts" id="facts"></dl>
+    <div class="db-actions">
+      <button class="btn ghost sm" type="button" id="open-guide">Как разбирать</button>
+      <button class="btn sm" type="button" id="export">Выгрузить в Excel</button>
+    </div>
+  </section>
+
+  <main class="workspace">
+    <section class="list" aria-label="Реестр строк">
+      <div class="toolbar">
+        <div class="tb-row split">
+          <div class="tb-left" role="group" aria-label="Фильтр по статусу" id="status-filter"></div>
+          <input class="search" type="search" id="q" placeholder="Наименование, ЕНС, артикул, №" aria-label="Поиск по строкам">
+        </div>
+        <div class="tb-row split">
+          <div class="reasons" id="reasons" aria-label="Фильтр по причине"></div>
+          <div class="tb-right">
+            <label class="toggle"><input type="checkbox" id="hide-done"> Скрыть разобранные</label>
+            <label class="toggle"><input type="checkbox" id="show-conf"> Уверенность</label>
+            <select class="sort" id="sort" aria-label="Порядок строк">
+              <option value="queue">Спорные первыми</option>
+              <option value="no">По номеру позиции</option>
+              <option value="price">По РРЦ</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="tablewrap scroll" id="tablewrap">
+        <table class="grid" aria-describedby="mock-note">
+          <thead>
+            <tr>
+              <th class="c-no" scope="col">№</th>
+              <th class="c-st" scope="col">Статус</th>
+              <th class="c-name" scope="col">Позиция (как у партнёра)</th>
+              <th class="c-reason" scope="col">Причина</th>
+              <th class="c-price r" scope="col">РРЦ, ₽</th>
+              <th class="c-conf r" scope="col">Увер.</th>
+              <th class="c-dec" scope="col">Решение</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <div class="list-foot">
+        <p class="mock-note" id="mock-note"><b>Макет:</b> 45 реальных позиций сделки — наименования, цены и места
+        в документах настоящие, статусы проставлены вручную (движок сопоставления в работе). Решения хранятся
+        только в этом браузере · <button class="linklike" type="button" id="reset">сбросить</button></p>
+      </div>
+    </section>
+
+    <div class="scrim" id="scrim"></div>
+    <aside class="detail" id="detail" aria-label="Карточка строки">
+      <div class="d-scroll scroll" id="d-scroll"></div>
+      <div class="decide" id="decide"></div>
+    </aside>
+  </main>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<dialog class="guide-dlg" id="guide">
+  <div class="dlg-head">
+    <h2 class="panel-title">Как разбирать</h2>
+    <button class="btn ghost sm" type="button" id="close-guide">Закрыть</button>
+  </div>
+  <div class="dlg-body guide scroll">
+    <p class="lede">Система сверила <b>все</b> позиции, а не только дорогие. Ваша работа — строки, где она
+    <b>сама не уверена</b>. Совпавшие свёрнуты внизу: смотреть их не нужно, но можно.</p>
+    <details open>
+      <summary>Что значат цвета</summary>
+      <div class="body">
+        <table class="marks">
+          <tr><td><span class="status needs_review">Требует проверки</span></td><td>Система нашла противоречие и решать не стала. <b>Ждёт вас.</b></td></tr>
+          <tr><td><span class="status mismatch">Не совпадает</span></td><td>Явный конфликт, который правило считает окончательным. Бывает редко.</td></tr>
+          <tr><td><span class="status no_data">Нет данных</span></td><td>Позиция есть только у одной стороны — например, вендор не дал цену.</td></tr>
+          <tr><td><span class="status partial_match">Частично совпадает</span></td><td>Пара найдена, расхождение некритичное.</td></tr>
+          <tr><td><span class="status matched">Совпадает</span></td><td>Продукт, тип лицензии, срок, диапазон и единица сошлись.</td></tr>
+        </table>
+        <p class="muted">Цвета те же, что в выгрузке в Excel.</p>
+      </div>
+    </details>
+    <details>
+      <summary>Как принять решение</summary>
+      <div class="body">
+        <ul>
+          <li>Откройте строку. Сверху — <b>почему система не решила</b>, ниже — какие параметры
+          разошлись и где именно в документах это написано.</li>
+          <li>В наименованиях <mark style="background:#FFE3C9;border-radius:3px;padding:0 2px">подсвечено</mark> то,
+          чем стороны отличаются.</li>
+          <li>Выберите итоговый статус и коротко напишите почему. <b>Без комментария решение не записать</b>:
+          цены фиксируются на три года, и через год должно быть понятно, кто и почему так решил.</li>
+          <li>Кнопки «принять всё» нет намеренно: каждая спорная строка — отдельное решение.</li>
+        </ul>
+      </div>
+    </details>
+    <details>
+      <summary>Почему дорогие строки не главные</summary>
+      <div class="body">
+        <p>Внутри «требует проверки» строки идут от дорогих к дешёвым — как вы привыкли. Но счётчик вверху
+        считает <b>все</b> спорные строки: разбор не закончен, пока не просмотрены и дешёвые. Именно там
+        при ручной сверке прятались ошибки.</p>
+        <p>Фильтр «Причина» собирает однотипные случаи вместе — их быстрее и ровнее разбирать подряд.</p>
+      </div>
+    </details>
+    <details>
+      <summary>Особенности источника</summary>
+      <div class="body">
+        <p>Иногда система правит очевидную ошибку документа сама — например, Excel превратил «10-14» в число
+        41913. Такая правка никогда не бывает тихой: строка помечена значком <span class="flagmark">i</span>, а в
+        карточке написано, что и почему взято.</p>
+      </div>
+    </details>
+    <details>
+      <summary>Уверенность системы</summary>
+      <div class="body">
+        <p>Число от 0 до 1 спрятано по умолчанию. Это справка для разбора ошибок системы, а не повод
+        для решения: строка с высокой уверенностью всё равно уходит на проверку, если разошлись тип
+        лицензии, срок, количество или цена.</p>
+      </div>
+    </details>
+    <details>
+      <summary>Клавиши</summary>
+      <div class="body">
+        <p><kbd>J</kbd> / <kbd>↓</kbd> — следующая строка, <kbd>K</kbd> / <kbd>↑</kbd> — предыдущая,
+        <kbd>/</kbd> — поиск. Решение клавишей не принимается — только кнопкой.</p>
+      </div>
+    </details>
+  </div>
+</dialog>
+
+<script src="mock-data.js"></script>
+<script>
+(function(){
+  'use strict';
+
+  const DATA = window.MOCK;
+  const ME = DATA.deal.manager;
+  const STORE_KEY = 'specmatch-mock-review-v1';
+
+  // Порядок групп — как в представлении v_review_queue (store/schema.sql).
+  const ORDER = ['needs_review', 'mismatch', 'no_data', 'partial_match', 'matched'];
+  const LABEL = {
+    needs_review: 'Требует проверки', mismatch: 'Не совпадает', no_data: 'Нет данных',
+    partial_match: 'Частично совпадает', matched: 'Совпадает'
+  };
+  const SHORT = {
+    needs_review: 'Требует проверки', mismatch: 'Не совпадает', no_data: 'Нет данных',
+    partial_match: 'Частично', matched: 'Совпадает'
+  };
+  const FINAL = ['matched', 'partial_match', 'mismatch', 'no_data'];
+  const PS_LABEL = { match: 'совпадает', conflict: 'конфликт', unknown: 'нет значения' };
+  const METHOD = { code: 'по коду ЕНС (шаг 1.1)', name: 'по наименованию, диапазону и сроку (шаг 1.2)' };
+  const QUICK = {
+    needs_review: ['Ошибка в графе партнёра', 'Уточнено у партнёра',
+                   'Уточнено у вендора', 'Запросить цену у вендора'],
+    other: ['Проверено по документам', 'Уточнено у партнёра', 'Уточнено у вендора']
+  };
+
+  const fmtPrice = new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmtInt = new Intl.NumberFormat('ru-RU');
+  const fmtWhen = new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const priceOf = (r) => (r.vendor && r.vendor.price != null) ? Number(r.vendor.price) : null;
+
+  // ---------- состояние: решения менеджера (в макете — localStorage) ----------
+  const rows = DATA.rows.map((r, i) => Object.assign({}, r, { key: r.id + ':' + i }));
+  const byKey = new Map(rows.map(r => [r.key, r]));
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(STORE_KEY) || '{}') || {}; } catch (e) { saved = {}; }
+  rows.forEach(r => {
+    const s = saved[r.key];
+    r.decision = s ? s.decision : null;
+    r.history = s ? s.history : [];
+  });
+  function persist(){
+    const out = {};
+    rows.forEach(r => { if (r.history.length) out[r.key] = { decision: r.decision, history: r.history }; });
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(out)); } catch (e) { /* приватное окно — живём без сохранения */ }
+  }
+
+  const ui = {
+    status: 'all', reason: null, q: '', hideDone: false, sort: 'queue',
+    showMatched: false, sel: null, editing: false
+  };
+  try { ui.showConf = localStorage.getItem(STORE_KEY + ':conf') === '1'; } catch (e) { ui.showConf = false; }
+
+  // ---------- отображение наименования ----------
+  function core(name){
+    if (!name) return '';
+    let i = name.indexOf(' Russian Edition');
+    if (i > 0) return name.slice(0, i);
+    i = name.indexOf('. ');
+    return i > 0 ? name.slice(0, i) : name;
+  }
+  function titleOf(r){ return core((r.partner && r.partner.name) || (r.vendor && r.vendor.name)); }
+  function subOf(r){
+    const p = r.partner || {};
+    const bits = [p.tier, p.duration, p.type].filter(Boolean);
+    bits.push(p.enc ? 'ЕНС ' + p.enc : 'без кода ЕНС');
+    return bits.join(' · ');
+  }
+
+  // Подсветка отличий в наименованиях: токен выделяется, если в нём есть
+  // слово, которого нет у другой стороны. Пробелы вокруг дефиса и хвост
+  // «Лицензия или эквивалент» отличием не считаются — это шум оформления.
+  const STOP = new Set(['лицензия', 'или', 'эквивалент', 'license', 'russian', 'edition', 'установочный', 'комплект']);
+  const keysOf = (t) => t.toLowerCase().split(/[\s\-–—.,:;()«»"]+/).filter(k => k && !STOP.has(k));
+  function diffHtml(a, b){
+    if (!a) return '';
+    if (!b) return esc(a);
+    const other = new Set(keysOf(b));
+    return a.split(/(\s+)/).map(t => {
+      if (/^\s*$/.test(t)) return t;
+      const ks = keysOf(t);
+      return ks.length && ks.some(k => !other.has(k)) ? '<mark>' + esc(t) + '</mark>' : esc(t);
+    }).join('');
+  }
+
+  // ---------- выборка и порядок ----------
+  function effective(r){ return r.decision ? r.decision.status : r.status; }
+  function matchesQuery(r){
+    if (!ui.q) return true;
+    const q = ui.q.toLowerCase();
+    const p = r.partner || {}, v = r.vendor || {};
+    return [p.name, p.enc, v.name, v.sku, v.enc, r.no].some(x => x != null && String(x).toLowerCase().includes(q));
+  }
+  function visible(){
+    return rows.filter(r =>
+      (ui.status === 'all' || r.status === ui.status) &&
+      (!ui.reason || r.reason === ui.reason) &&
+      (!ui.hideDone || !r.decision) &&
+      matchesQuery(r));
+  }
+  function sorted(list){
+    const byPrice = (a, b) => (priceOf(b) ?? -1) - (priceOf(a) ?? -1);
+    const byNo = (a, b) => (a.no ?? 1e9) - (b.no ?? 1e9);
+    const out = list.slice();
+    if (ui.sort === 'no') return out.sort(byNo);
+    if (ui.sort === 'price') return out.sort(byPrice);
+    return out.sort((a, b) => ORDER.indexOf(a.status) - ORDER.indexOf(b.status) || byPrice(a, b));
+  }
+  // Строки в том порядке, в каком их видит менеджер (для J/K и «следующей спорной»).
+  function navOrder(){
+    const list = sorted(visible());
+    if (ui.sort !== 'queue' || ui.showMatched || ui.status === 'matched') return list;
+    return list.filter(r => r.status !== 'matched');
+  }
+
+  // ---------- полоса сделки ----------
+  function renderDealbar(){
+    const d = DATA.deal;
+    $('deal-title').textContent = d.title;
+    document.title = 'Разбор · ' + d.title + ' — макет';
+    $('facts').innerHTML = [
+      ['Договор', d.contract],
+      ['Запрос партнёра', fmtInt.format(d.partnerPositions) + ' поз.'],
+      ['Спецификация вендора', fmtInt.format(d.vendorPositions) + ' поз.'],
+      ['Менеджер · ПАМ', shortName(d.manager) + ' · ' + shortName(d.pam)]
+    ].map(([k, v]) => '<div><dt>' + esc(k) + '</dt><dd>' + esc(v) + '</dd></div>').join('');
+    renderProgress();
+  }
+  function shortName(n){ const p = String(n || '').split(' '); return p.length > 1 ? p[0][0] + '. ' + p.slice(1).join(' ') : n; }
+  function renderProgress(){
+    const review = rows.filter(r => r.status === 'needs_review');
+    const done = review.filter(r => r.decision).length;
+    $('done-n').textContent = done;
+    $('total-n').textContent = review.length;
+    $('bar').style.width = (review.length ? done / review.length * 100 : 0) + '%';
+    $('bar-wrap').setAttribute('aria-valuemax', review.length);
+    $('bar-wrap').setAttribute('aria-valuenow', done);
+    const left = review.filter(r => !r.decision);
+    const cheap = left.filter(r => (priceOf(r) ?? 0) < 10000).length;
+    $('db-sub').textContent = left.length
+      ? 'Осталось ' + left.length + (cheap ? ', из них дешевле 10 000 ₽ — ' + cheap : '') +
+        '. Разбор не закончен, пока не просмотрены и дешёвые строки.'
+      : 'Все спорные строки разобраны. Выгрузка будет без оранжевых строк.';
+  }
+
+  // ---------- фильтры ----------
+  function renderFilters(){
+    const counts = {};
+    rows.forEach(r => { counts[r.status] = (counts[r.status] || 0) + 1; });
+    const chip = (val, label, n, dot) =>
+      '<button class="chip" type="button" data-status="' + val + '" aria-pressed="' + (ui.status === val) + '"' +
+      (n === 0 ? ' disabled' : '') + '>' + (dot ? '<span class="dot ' + val + '"></span>' : '') +
+      esc(label) + ' <span class="cnt">' + n + '</span></button>';
+    $('status-filter').innerHTML = chip('all', 'Все', rows.length, false) +
+      ORDER.map(s => chip(s, SHORT[s], counts[s] || 0, true)).join('');
+
+    // Причины — только у строк, которые ждут человека.
+    const reasonRows = rows.filter(r => r.reason && (ui.status === 'all' || r.status === ui.status));
+    const reasons = {};
+    reasonRows.forEach(r => { reasons[r.reason] = (reasons[r.reason] || 0) + 1; });
+    const names = Object.keys(reasons);
+    $('reasons').innerHTML = names.length
+      ? '<span class="lbl">Причина:</span>' +
+        '<button class="chip" type="button" data-reason="" aria-pressed="' + (!ui.reason) + '">любая</button>' +
+        names.map(n => '<button class="chip" type="button" data-reason="' + esc(n) + '" aria-pressed="' +
+          (ui.reason === n) + '">' + esc(n) + ' <span class="cnt">' + reasons[n] + '</span></button>').join('')
+      : '';
+  }
+
+  // ---------- таблица ----------
+  function rowHtml(r){
+    const st = r.status;
+    const price = priceOf(r);
+    const dec = r.decision
+      ? '<span class="dec"><span class="dot ' + r.decision.status + '"></span>' +
+        esc(r.decision.kind === 'confirmed' ? 'Подтверждено' : LABEL[r.decision.status]) + '</span>'
+      : (st === 'needs_review' ? '<span class="none">ждёт решения</span>' : '<span class="none">—</span>');
+    const reason = r.reason
+      ? '<span class="reason' + (st === 'no_data' ? ' nodata' : '') + '">' + esc(r.reason) + '</span>'
+      : '<span class="none">—</span>';
+    const flag = r.flags && r.flags.length
+      ? '<span class="flagmark" title="Особенность источника: ' + esc(r.flags.map(f => f.code).join(', ')) + '">i</span>' : '';
+    return '<tr class="row st-' + st + (r.decision ? ' is-done' : '') + (ui.sel === r.key ? ' is-sel' : '') +
+      '" data-key="' + esc(r.key) + '" tabindex="' + (ui.sel === r.key ? 0 : -1) + '" aria-selected="' + (ui.sel === r.key) + '">' +
+      '<td class="c-no num">' + esc(r.no ?? '—') + '</td>' +
+      '<td class="c-st"><span class="status ' + st + '">' + LABEL[st] + '</span></td>' +
+      '<td class="c-name"><div class="nm">' + esc(titleOf(r)) + flag + '</div><div class="sub">' + esc(subOf(r)) + '</div></td>' +
+      '<td class="c-reason">' + reason + '</td>' +
+      '<td class="c-price r num">' + (price == null ? '<span class="none">нет цены</span>' : fmtPrice.format(price)) + '</td>' +
+      '<td class="c-conf r num">' + (r.confidence == null ? '—' : String(r.confidence).replace('.', ',')) + '</td>' +
+      '<td class="c-dec">' + dec + '</td></tr>';
+  }
+  const NOTE = {
+    needs_review: 'система не решила — ждёт вас',
+    no_data: 'позиция есть только у одной стороны',
+    mismatch: 'явный конфликт', partial_match: 'некритичное расхождение',
+    matched: 'проверять не нужно'
+  };
+  function renderTable(){
+    const list = sorted(visible());
+    let html = '';
+    if (!list.length){
+      html = '<tr class="empty"><td colspan="7">Ничего не найдено. Сбросьте поиск или фильтр.</td></tr>';
+    } else if (ui.sort === 'queue'){
+      ORDER.forEach(s => {
+        const part = list.filter(r => r.status === s);
+        if (!part.length) return;
+        const collapsed = s === 'matched' && !ui.showMatched && ui.status !== 'matched';
+        html += '<tr class="grp"><td colspan="7"><span class="dot ' + s + '"></span> ' + LABEL[s] +
+          '<span class="gcnt">' + part.length + '</span><span class="gnote">' + NOTE[s] + '</span>' +
+          (s === 'matched' && ui.status !== 'matched'
+            ? '<button class="linklike" type="button" data-toggle-matched>' + (collapsed ? 'показать' : 'свернуть') + '</button>' : '') +
+          '</td></tr>';
+        if (!collapsed) html += part.map(rowHtml).join('');
+      });
+    } else {
+      html = list.map(rowHtml).join('');
+    }
+    $('tbody').innerHTML = html;
+  }
+
+  // ---------- карточка ----------
+  const FIELD = { 'Тип лицензии': 'type', 'Срок': 'duration', 'Диапазон количества': 'tier' };
+  function fieldMarks(r){
+    const m = {};
+    (r.params || []).forEach(p => { if (FIELD[p.name] && p.status !== 'match') m[FIELD[p.name]] = p.status; });
+    return m;
+  }
+  function kv(label, val, mark){
+    const empty = val == null || String(val).trim() === '';
+    const cls = empty ? 'gap' : (mark === 'conflict' ? 'hl' : '');
+    return '<dt>' + esc(label) + '</dt><dd' + (cls ? ' class="' + cls + '"' : '') + '>' +
+      (empty ? 'не указано' : esc(val)) + '</dd>';
+  }
+  function srcHtml(s){
+    return '<div class="src">Источник: <span class="path">' + esc(s.doc) + ' › ' + esc(s.where) + ' › ' + esc(s.cell) + '</span></div>';
+  }
+  function whyTitle(st){
+    return { needs_review: 'Почему система не решила сама', no_data: 'Почему нет данных',
+             matched: 'Почему совпадает', mismatch: 'Почему не совпадает', partial_match: 'Что расходится' }[st];
+  }
+
+  function renderDetail(){
+    const r = byKey.get(ui.sel);
+    if (!r){
+      $('d-scroll').innerHTML = '<p class="muted">Выберите строку слева.</p>';
+      $('decide').innerHTML = '';
+      return;
+    }
+    const p = r.partner, v = r.vendor, marks = fieldMarks(r);
+    const order = navOrder(), idx = order.indexOf(r);
+    let h = '<div class="d-body">';
+    h += '<div class="d-top"><div class="d-eyebrow">Позиция № ' + esc(r.no ?? '—') +
+      (p ? ' · строка ' + esc(p.src.cell) : '') + '</div><div class="d-nav">' +
+      '<button class="btn ghost" type="button" data-nav="-1"' + (idx <= 0 ? ' disabled' : '') + ' aria-label="Предыдущая строка">↑</button>' +
+      '<button class="btn ghost" type="button" data-nav="1"' + (idx < 0 || idx >= order.length - 1 ? ' disabled' : '') + ' aria-label="Следующая строка">↓</button>' +
+      '<button class="btn ghost d-close" type="button" data-close>Закрыть</button></div></div>';
+    h += '<div class="d-status"><span class="status ' + r.status + '">' + LABEL[r.status] + '</span>' +
+      (r.reason ? '<span class="reason' + (r.status === 'no_data' ? ' nodata' : '') + '">' + esc(r.reason) + '</span>' : '') + '</div>';
+    h += '<h2 class="d-title">' + esc(titleOf(r)) + '</h2>';
+    h += '<div class="d-meta">' + (r.method ? 'Пара найдена ' + METHOD[r.method] : 'Пара в спецификации вендора не найдена') +
+      '<span class="conf-line"> · уверенность ' + (r.confidence == null ? '—' : String(r.confidence).replace('.', ',')) +
+      ' (справочно)</span></div>';
+
+    h += '<div class="callout ' + r.status + '"><b>' + whyTitle(r.status) + '</b><p>' + esc(r.comment) + '</p></div>';
+
+    if (r.params && r.params.length){
+      const ps = r.params.slice().sort((a, b) => (a.status === 'match') - (b.status === 'match'));
+      h += '<section class="d-sec"><h3>Критические параметры</h3><table class="params">' +
+        '<thead><tr><th>Параметр</th><th>Партнёр</th><th>Вендор</th><th></th></tr></thead><tbody>' +
+        ps.map(x => '<tr class="' + x.status + '"><td>' + esc(x.name) + '</td><td>' +
+          (x.partner ? esc(x.partner) : '<span class="na">не указано</span>') + '</td><td>' +
+          (x.vendor ? esc(x.vendor) : '<span class="na">не указано</span>') + '</td><td><span class="ps ' + x.status + '">' +
+          PS_LABEL[x.status] + '</span></td></tr>').join('') + '</tbody></table></section>';
+    }
+
+    if (r.flags && r.flags.length){
+      h += '<section class="d-sec"><h3>Особенности источника</h3><ul class="flags">' +
+        r.flags.map(f => '<li><span class="code">' + esc(f.code) + '</span><span>' + esc(f.text) + '</span></li>').join('') +
+        '</ul></section>';
+    }
+
+    h += '<section class="d-sec"><h3>Обе стороны — как в документах</h3><div class="sides">';
+    if (p){
+      h += '<div class="side-card"><div class="side-h"><span>Запрос партнёра</span></div>' +
+        '<p class="raw">' + diffHtml(p.name, v && v.name) + '</p><dl class="kv">' +
+        kv('Код ЕНС', p.enc) + kv('Тип лицензии, графа', p.type, marks.type) +
+        kv('Срок, графа', p.duration, marks.duration) + kv('Диапазон, графа', p.tier, marks.tier) +
+        kv('Единица', p.unit) + '</dl>' + srcHtml(p.src) + '</div>';
+    }
+    if (v){
+      h += '<div class="side-card"><div class="side-h"><span>Спецификация вендора</span>' +
+        (v.price != null ? '<span class="price">' + fmtPrice.format(Number(v.price)) + ' ₽</span>' : '') + '</div>' +
+        '<p class="raw">' + diffHtml(v.name, p && p.name) + '</p><dl class="kv">' +
+        kv('Код ЕНС', v.enc) + kv('Артикул', v.sku) + kv('Тип лицензии', v.type, marks.type) +
+        kv('Срок', v.duration, marks.duration) + kv('Диапазон', v.tier, marks.tier) + kv('Единица', v.unit) +
+        kv('Реестр ПО', v.registry) + '</dl>' + srcHtml(v.src) + '</div>';
+    } else {
+      h += '<div class="side-card"><div class="side-h"><span>Спецификация вендора</span></div>' +
+        '<p class="side-empty">Пары нет. Искали по коду ЕНС и по наименованию с диапазоном и сроком.</p></div>';
+    }
+    h += '</div></section>';
+
+    if (r.group){
+      h += '<details class="d-sec"><summary>Групповые требования партнёра · ' + esc(r.group.range) + '</summary>' +
+        '<div class="req">' + esc(r.group.text) + (r.group.text.length >= 700 ? '…' : '') + '</div></details>';
+    }
+
+    h += '<section class="d-sec"><h3>Журнал строки</h3><ol class="hist">' +
+      '<li><b>Система</b> — статус «' + LABEL[r.status] + '» <span class="when">· при сверке</span></li>' +
+      r.history.map(e => '<li class="me"><b>' + esc(shortName(e.actor)) + '</b> ' + esc(e.text) +
+        (e.comment ? ': <q>' + esc(e.comment) + '</q>' : '') + ' <span class="when">· ' +
+        esc(fmtWhen.format(new Date(e.at))) + '</span></li>').join('') +
+      '</ol></section>';
+    h += '</div>';
+    $('d-scroll').innerHTML = h;
+    $('d-scroll').scrollTop = 0;
+    renderDecide(r);
+  }
+
+  // ---------- форма решения ----------
+  let draft = { status: null, comment: '', mode: null };
+  function renderDecide(r){
+    const box = $('decide');
+    if (r.decision && !ui.editing){
+      const d = r.decision;
+      box.innerHTML = '<div class="decided"><div><div class="what"><span class="dot ' + d.status + '"></span> ' +
+        (d.kind === 'confirmed' ? 'Подтверждено: ' : 'Ваше решение: ') + esc(LABEL[d.status]) + '</div>' +
+        (d.comment ? '<q>' + esc(d.comment) + '</q>' : '') +
+        '<div class="who">' + esc(shortName(d.actor)) + ' · ' + esc(fmtWhen.format(new Date(d.at))) + ' · записано в журнал</div></div>' +
+        '<button class="btn ghost sm" type="button" data-edit>Изменить</button></div>';
+      return;
+    }
+    const isReview = r.status === 'needs_review';
+    if (!isReview && draft.mode !== 'override'){
+      box.innerHTML = '<h3>Вывод системы: ' + esc(LABEL[r.status]) + '</h3>' +
+        '<p class="sub">Согласны — подтвердите. Не согласны — переопределите статус с комментарием.</p>' +
+        '<textarea class="input" id="c-text" rows="2" placeholder="Комментарий, если нужен" aria-label="Комментарий"></textarea>' +
+        '<div class="decide-bottom"><button class="btn" type="button" data-confirm>Подтвердить</button>' +
+        '<button class="btn ghost" type="button" data-override>Переопределить…</button></div>';
+      return;
+    }
+    const options = FINAL.filter(s => isReview || s !== r.status);
+    box.innerHTML = '<h3>' + (isReview ? 'Ваше решение' : 'Переопределить статус') + '</h3>' +
+      '<p class="sub">' + (isReview
+        ? 'Система не решила — выберите итоговый статус и напишите почему.'
+        : 'Новый статус и причина попадут в журнал рядом с выводом системы.') + '</p>' +
+      '<div class="seg" role="group" aria-label="Итоговый статус">' + options.map(s =>
+        '<button type="button" data-pick="' + s + '" aria-pressed="' + (draft.status === s) + '"><span class="dot ' + s + '"></span>' +
+        SHORT[s] + '</button>').join('') + '</div>' +
+      '<div class="quick">' + QUICK[isReview ? 'needs_review' : 'other'].map(q =>
+        '<button type="button" data-quick="' + esc(q) + '">' + esc(q) + '</button>').join('') + '</div>' +
+      '<textarea class="input" id="c-text" rows="2" placeholder="Почему такое решение — обязательно" aria-label="Комментарий, обязательно" aria-required="true">' +
+      esc(draft.comment) + '</textarea>' +
+      '<div class="decide-bottom"><button class="btn" type="button" data-record disabled>Записать решение</button>' +
+      (!isReview || ui.editing ? '<button class="btn ghost" type="button" data-cancel>Отмена</button>' : '') +
+      '<span class="note" id="d-note"></span></div>';
+    syncRecord();
+  }
+  function syncRecord(){
+    const btn = document.querySelector('[data-record]');
+    if (!btn) return;
+    const text = ($('c-text').value || '').trim();
+    const ok = !!draft.status && text.length > 0;
+    btn.disabled = !ok;
+    const note = $('d-note');
+    note.className = 'note' + (!ok && (draft.status || text) ? ' warn' : '');
+    note.textContent = ok ? '' : !draft.status ? 'Выберите статус.' : 'Напишите причину — без неё решение не записать.';
+  }
+  function record(r, status, kind, comment){
+    const at = new Date().toISOString();
+    r.decision = { status, kind, comment: comment || '', actor: ME, at };
+    r.history.push({ actor: ME, at, comment: comment || '',
+      text: kind === 'confirmed' ? '— подтверждено «' + LABEL[status] + '»'
+                                 : '— переопределено: «' + LABEL[r.status] + '» → «' + LABEL[status] + '»' });
+    persist();
+    ui.editing = false;
+    draft = { status: null, comment: '', mode: null };
+    // Спорная строка разобрана — сразу к следующей неразобранной спорной
+    // в текущем фильтре. Если в фильтре их не осталось, говорим, сколько
+    // спорных осталось всего, а не «всё разобрано».
+    let msg = 'Записано в журнал.';
+    if (r.status === 'needs_review'){
+      const next = navOrder().find(x => x.status === 'needs_review' && !x.decision);
+      const left = rows.filter(x => x.status === 'needs_review' && !x.decision).length;
+      if (next){ ui.sel = next.key; msg += ' Следующая спорная — № ' + (next.no ?? '—') + '.'; }
+      else if (left) msg += ' В этом фильтре спорных больше нет, всего осталось ' + left + ' — снимите фильтр, чтобы продолжить.';
+      else msg += ' Все спорные строки разобраны.';
+    }
+    refresh();
+    toast(msg);
+  }
+
+  // ---------- общая перерисовка ----------
+  function refresh(){
+    document.body.classList.toggle('show-conf', !!ui.showConf);
+    // Карточка не должна показывать строку, которую скрыл фильтр.
+    const order = navOrder();
+    if (!order.some(r => r.key === ui.sel)){
+      ui.sel = order.length ? order[0].key : null;
+      ui.editing = false;
+      draft = { status: null, comment: '', mode: null };
+    }
+    renderFilters();
+    renderTable();
+    renderProgress();
+    renderDetail();
+    const sel = document.querySelector('tr.row.is-sel');
+    if (sel) sel.scrollIntoView({ block: 'nearest' });
+  }
+  function select(key, openDrawer){
+    if (ui.sel !== key){ ui.editing = false; draft = { status: null, comment: '', mode: null }; }
+    ui.sel = key;
+    refresh();
+    if (openDrawer) document.body.classList.add('drawer-open');
+  }
+  function move(step){
+    const order = navOrder();
+    if (!order.length) return;
+    const i = order.findIndex(r => r.key === ui.sel);
+    const next = order[Math.min(order.length - 1, Math.max(0, i < 0 ? 0 : i + step))];
+    select(next.key, false);
+    const tr = document.querySelector('tr.row.is-sel');
+    if (tr) tr.focus({ preventScroll: false });
+  }
+
+  let toastTimer = null;
+  function toast(text){
+    const t = $('toast');
+    t.textContent = text;
+    t.classList.add('on');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('on'), 3600);
+  }
+
+  // ---------- события ----------
+  $('status-filter').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-status]');
+    if (!b) return;
+    ui.status = b.dataset.status; ui.reason = null;
+    refresh();
+  });
+  $('reasons').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-reason]');
+    if (!b) return;
+    ui.reason = b.dataset.reason || null;
+    refresh();
+  });
+  $('q').addEventListener('input', (e) => {
+    ui.q = e.target.value.trim();
+    // Карточку перерисовываем, только если поиск скрыл выбранную строку, —
+    // иначе не сбиваем прокрутку карточки и черновик решения.
+    if (navOrder().some(r => r.key === ui.sel)) renderTable(); else refresh();
+  });
+  $('hide-done').addEventListener('change', (e) => { ui.hideDone = e.target.checked; refresh(); });
+  $('show-conf').addEventListener('change', (e) => {
+    ui.showConf = e.target.checked;
+    try { localStorage.setItem(STORE_KEY + ':conf', ui.showConf ? '1' : '0'); } catch (err) { /* без сохранения */ }
+    refresh();
+  });
+  $('sort').addEventListener('change', (e) => { ui.sort = e.target.value; refresh(); });
+  $('tbody').addEventListener('click', (e) => {
+    if (e.target.closest('[data-toggle-matched]')){ ui.showMatched = !ui.showMatched; renderTable(); return; }
+    const tr = e.target.closest('tr.row');
+    if (tr) select(tr.dataset.key, true);
+  });
+  $('scrim').addEventListener('click', () => document.body.classList.remove('drawer-open'));
+
+  $('detail').addEventListener('click', (e) => {
+    const r = byKey.get(ui.sel);
+    if (!r) return;
+    const t = e.target.closest('button');
+    if (!t) return;
+    if (t.dataset.nav){ move(Number(t.dataset.nav)); return; }
+    if ('close' in t.dataset){ document.body.classList.remove('drawer-open'); return; }
+    if ('edit' in t.dataset){ ui.editing = true; draft = { status: null, comment: '', mode: 'override' }; renderDecide(r); return; }
+    if ('cancel' in t.dataset){ ui.editing = false; draft = { status: null, comment: '', mode: null }; renderDecide(r); return; }
+    if ('override' in t.dataset){ draft = { status: null, comment: $('c-text').value, mode: 'override' }; renderDecide(r); return; }
+    if ('confirm' in t.dataset){ record(r, r.status, 'confirmed', $('c-text').value.trim()); return; }
+    if (t.dataset.pick){ draft.status = t.dataset.pick; draft.comment = $('c-text').value;
+      document.querySelectorAll('[data-pick]').forEach(b => b.setAttribute('aria-pressed', String(b === t))); syncRecord(); return; }
+    if (t.dataset.quick){
+      const ta = $('c-text');
+      ta.value = ta.value.trim() ? ta.value.trim() + '. ' + t.dataset.quick : t.dataset.quick;
+      draft.comment = ta.value; ta.focus(); syncRecord(); return;
+    }
+    if ('record' in t.dataset){ record(r, draft.status, 'overridden', $('c-text').value.trim()); }
+  });
+  $('detail').addEventListener('input', (e) => {
+    if (e.target.id === 'c-text'){ draft.comment = e.target.value; syncRecord(); }
+  });
+
+  $('export').addEventListener('click', () => {
+    const left = rows.filter(r => r.status === 'needs_review' && !r.decision).length;
+    toast(left
+      ? 'Не разобрано ' + left + ' спорных строк — в выгрузке они останутся оранжевыми. Сама выгрузка — задача M1-D3, в макете файл не формируется.'
+      : 'Все спорные строки разобраны. Выгрузка в Excel — задача M1-D3, в макете файл не формируется.');
+  });
+  $('reset').addEventListener('click', () => {
+    rows.forEach(r => { r.decision = null; r.history = []; });
+    persist();
+    ui.editing = false;
+    draft = { status: null, comment: '', mode: null };
+    refresh();
+    toast('Решения макета сброшены.');
+  });
+
+  const guide = $('guide');
+  $('open-guide').addEventListener('click', () => guide.showModal());
+  $('close-guide').addEventListener('click', () => guide.close());
+  guide.addEventListener('click', (e) => { if (e.target === guide) guide.close(); });
+
+  document.addEventListener('keydown', (e) => {
+    if (guide.open) return;
+    const tag = (e.target.tagName || '').toLowerCase();
+    const typing = tag === 'input' || tag === 'textarea' || tag === 'select';
+    if (e.key === 'Escape'){ document.body.classList.remove('drawer-open'); if (typing) e.target.blur(); return; }
+    if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === 'j' || e.key === 'о' || e.key === 'ArrowDown'){ e.preventDefault(); move(1); }
+    else if (e.key === 'k' || e.key === 'л' || e.key === 'ArrowUp'){ e.preventDefault(); move(-1); }
+    else if (e.key === '/'){ e.preventDefault(); $('q').focus(); }
+    else if (e.key === 'Enter' && e.target.closest && e.target.closest('tr.row')){ document.body.classList.add('drawer-open'); }
+  });
+
+  // ---------- старт: первая неразобранная спорная строка ----------
+  $('show-conf').checked = !!ui.showConf;
+  renderDealbar();
+  const first = navOrder().find(r => r.status === 'needs_review' && !r.decision) || navOrder()[0];
+  ui.sel = first ? first.key : null;
+  refresh();
+})();
+</script>
+</body>
+</html>
